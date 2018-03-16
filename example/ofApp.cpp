@@ -71,7 +71,15 @@ void ofApp::dragEvent(ofDragInfo dragInfo){
 		string targetDir = ofFilePath::getEnclosingDirectory(movie);
 		string movieFileName = ofFilePath::getBaseName(movie);
 
-		ffmpeg.convertToImageSequence(movie, "jpg", 1.0, targetDir + "/" + movieFileName, ofVec2f(100,100));
+		ffmpeg.convertToImageSequence(movie, //file
+									  "jpg", //img format
+									  1.0, //img compression [0..1]
+									  targetDir + "/" + movieFileName, //folder to output to
+									  6, //num digits in img sequence file naming
+									  ofVec2f(100,100), //resize to fit this box
+									  ofVec2f(4,1), //crop to match this aspect ratio
+									  1 //if cropping, crop balance factor: where to we crop?
+									  );
 	}
 }
 
