@@ -9,12 +9,33 @@
 #include "ofxFFmpegUtils.h"
 
 ofxFFmpegUtils::ofxFFmpegUtils(){
+}
 
+ofxFFmpegUtils::~ofxFFmpegUtils(){
+	for(auto p : jobQueue){
+		delete p.second;
+	}
+	jobQueue.clear();
+
+	for(auto p : activeProcesses){
+		p.second->kill();
+		p.second->join();
+		delete p.second;
+	}
+	activeProcesses.clear();
 }
 
 void ofxFFmpegUtils::setup(string ffmpegBinaryPath, string ffProbeBinaryPath){
 	this->ffmpegBinaryPath = ffmpegBinaryPath;
 	this->ffProbeBinaryPath = ffProbeBinaryPath;
+}
+
+void ofxFFmpegUtils::setMaxSimulatneousJobs(int max){
+	maxSimultJobs = ofClamp(max, 1, INT_MAX);
+}
+
+void ofxFFmpegUtils::setMaxThreadsPerJob(int maxThr){
+	maxThreadsPerJob = maxThr;
 }
 
 
@@ -41,9 +62,12 @@ ofVec2f ofxFFmpegUtils::getVideoResolution(string movieFilePath){
 }
 
 
-void ofxFFmpegUtils::convertToImageSequence(string movieFile, string imgFileExtension,
+size_t ofxFFmpegUtils::convertToImageSequence(string movieFile, string imgFileExtension,
 											float jpegQuality/*[0..1]*/, string outputFolder, int numFilenameDigits,
 											ofVec2f resizeBox, ofVec2f cropToAspectRatio, float cropBalance){
+
+	size_t jobID = jobCounter;
+	jobCounter++;
 
 	ofxExternalProcess * proc = new ofxExternalProcess();
 	vector<string> args;
@@ -73,7 +97,7 @@ void ofxFFmpegUtils::convertToImageSequence(string movieFile, string imgFileExte
 	bool isResizing = resizeBox.x > 0 && resizeBox.y > 0;
 	bool isCropping = cropToAspectRatio.x > 0 && cropToAspectRatio.y > 0;
 
-	if(isResizing && !isCropping ){ //user provided a resize box
+	if( isResizing && !isCropping ){ //only resize
 
 		r.scaleTo(resizeTarget);
 
@@ -86,21 +110,41 @@ void ofxFFmpegUtils::convertToImageSequence(string movieFile, string imgFileExte
 		}
 	}
 
-	if(isCropping && isResizing){ //user provided a crop res
+	if(cropBalance < 0.0) cropBalance = 0.5; //if no balance defined (-1), crop in middle
 
-		//r.scaleTo(ofRectangle(0,0,resizeBox.x, resizeBox.y));
+	if(isCropping && !isResizing){ //only crop
 
 		ofRectangle crop = ofRectangle(0,0,cropToAspectRatio.x,cropToAspectRatio.y);
 		crop.scaleTo(r, OF_SCALEMODE_FIT);
 
+		string command;
+
+		if( int(crop.width) == int(r.width) ){ //we are cropping vertically - we must remove pix from top or bottom
+
+			int diff = r.height - crop.height;
+			int cropOffset = ofMap(cropBalance, 0, 1, 0, diff);
+			command = "crop=" + ofToString(crop.width,0) + ":" + ofToString(crop.height,0) + ":" + "0" + ":" + ofToString(cropOffset);
+
+		}else{ //we are cropping horizontally - we must remove pixels from left or right
+
+			int diff = r.width - crop.width;
+			int cropOffset = ofMap(cropBalance, 0, 1, 0, diff);
+			command = "crop=" + ofToString(crop.width,0) + ":" + ofToString(crop.height,0) + ":" + ofToString(cropOffset) + ":" + "0";
+		}
+
+		args.insert(args.begin() + args.size() - 1, "-vf");
+		args.insert(args.begin() + args.size() - 1, command);
+
+
+	}
+
+	if(isCropping && isResizing){ //resize & crop
+
+		ofRectangle crop = ofRectangle(0,0,cropToAspectRatio.x,cropToAspectRatio.y);
+		crop.scaleTo(r, OF_SCALEMODE_FIT);
 		crop.scaleTo(resizeTarget);
 
 		string command;
-
-		//at this point, crop holds the final resolution we will output to.
-		//but we still need to decide where to crop (ie left or right)
-
-		if(cropBalance < 0.0) cropBalance = 0.5;
 		r.scaleTo(crop, OF_SCALEMODE_FILL);
 
 		if( int(crop.width) == int(r.width) ){ //we are cropping vertically - we must remove pix from top or bottom
@@ -122,6 +166,13 @@ void ofxFFmpegUtils::convertToImageSequence(string movieFile, string imgFileExte
 		args.insert(args.begin() + args.size() - 1, command);
 	}
 
+
+	if(maxThreadsPerJob > 0){
+		ofLogNotice("ofxFFmpegUtils") << "limiting ffmpeg job to " << maxThreadsPerJob << " threads.";
+		args.insert(args.begin(), ofToString(maxThreadsPerJob));
+		args.insert(args.begin(), "-threads");
+	}
+
 	proc->setup(
 				".", 				//working dir
 				ffmpegBinaryPath, 	//command
@@ -131,25 +182,51 @@ void ofxFFmpegUtils::convertToImageSequence(string movieFile, string imgFileExte
 	proc->setLivePipeOutputDelay(0);
 	proc->setLivePipe(ofxExternalProcess::STDOUT_AND_STDERR_PIPE);
 
-	proc->executeInThreadAndNotify();
-
-	ProcessInfo info;
-	processes[proc] = info;
+	//proc->executeInThreadAndNotify();
+	jobQueue[jobID] = proc; //enqueue job
+	return jobID;
 }
+
 
 void ofxFFmpegUtils::update(float dt){
 
-	vector<ofxExternalProcess*> toDelete;
-	for(auto p : processes){
-		if (!p.first->isRunning()){
-			ofLogNotice("ofxFFmpegUtils") << "ofxFFmpegUtils done!";
-			ofLogNotice("ofxFFmpegUtils") << p.first->getCombinedOutput();
+	vector<size_t> toDelete;
+
+	//look for finished processes, put them on delete list and notify
+	for(auto p : activeProcesses){
+		if (!p.second->isRunning()){
+			ofLogNotice("ofxFFmpegUtils") << "job \"" << p.first << "\" done!";
+			//ofLogNotice("ofxFFmpegUtils") << p.second->getCombinedOutput();
+			JobResult r;
+			r.jobID = p.first;
+			r.results = p.second->getLastExecutionResult();
+			r.ok = r.results.statusCode == 0;
+			ofNotifyEvent(eventJobCompleted, r, this);
+
+			delete p.second;
 			toDelete.push_back(p.first);
 		}
 	}
 
+	//delete completed processes
 	for(auto p : toDelete){
-		processes.erase(p);
+		activeProcesses.erase(p);
+	}
+
+	//spawn pending jobs if any, but only up to "maxSimultJobs" can run at the same time
+	vector<size_t> toTransfer;
+	for(auto & p : jobQueue){
+		if(activeProcesses.size() + toTransfer.size() < maxSimultJobs){
+			toTransfer.push_back(p.first);
+		}else{
+			break;
+		}
+	}
+
+	for(auto & t : toTransfer){
+		activeProcesses[t] = jobQueue[t];
+		activeProcesses[t]->executeInThreadAndNotify();
+		jobQueue.erase(t);
 	}
 
 }
@@ -158,11 +235,19 @@ void ofxFFmpegUtils::update(float dt){
 void ofxFFmpegUtils::drawDebug(int x, int y){
 	ofPushMatrix();
 	ofTranslate(x,y);
-	string msg;
-	for(auto & p : processes){
-		msg += p.first->getCombinedOutput();
-		msg += "\n\n";
-	}
+		string msg = "#### ofxFFmpegUtils ################################\n";
+		msg += " Pending: " + ofToString(jobQueue.size()) + " Active: " + ofToString(activeProcesses.size()) + "\n";
+
+		for(auto & p : activeProcesses){
+			auto out = p.second->getCombinedOutput();
+			auto lines = ofSplitString(out, "\n");
+			if(lines.size() > 0){
+				auto frames = ofSplitString(lines.back(), "\r");
+				if(frames.size() > 0){
+					msg += "   -P" + ofToString(p.first) + ": " + frames.back() + "\n";
+				}
+			}
+		}
 		ofDrawBitmapString(msg, 0, 0);
 	ofPopMatrix();
 }

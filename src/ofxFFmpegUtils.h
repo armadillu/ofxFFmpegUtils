@@ -15,13 +15,18 @@ class ofxFFmpegUtils{
 public:
 	
 	ofxFFmpegUtils();
+	~ofxFFmpegUtils();
 
 	void setup(string ffmpegBinaryPath, string ffProbeBinaryPath);
 	void update(float dt);
+	void setMaxSimulatneousJobs(int max); //enqueue jobs if more than N are already running
+	void setMaxThreadsPerJob(int maxThr); //set it "-1" for auto (# of hw cores)
 
+	//returns video res of a specific file (spaws an external process & blocks)
 	ofVec2f getVideoResolution(string movieFilePath);
 
-	void convertToImageSequence(string movieFilePath,
+	//returns a jobID
+	size_t convertToImageSequence(string movieFilePath,
 								string imgFileExtension, //"jpeg", "tiff", etc
 								float jpegQuality/*[0..1]*/,
 								string outputFolder,
@@ -36,14 +41,23 @@ public:
 
 	void drawDebug(int x, int y);
 
-protected:
-
-	struct ProcessInfo{
+	struct JobResult{
+		size_t jobID = 0;
+		bool ok = false;
+		ofxExternalProcess::Result results;
 	};
 
-	map<ofxExternalProcess*, ProcessInfo> processes;
+	ofEvent<JobResult> eventJobCompleted;
+
+protected:
+
+	map<size_t, ofxExternalProcess*> jobQueue;
+	map<size_t, ofxExternalProcess*> activeProcesses;
 
 	string ffmpegBinaryPath;
 	string ffProbeBinaryPath;
-};
 
+	size_t jobCounter = 0;
+	int maxSimultJobs = 2;
+	int maxThreadsPerJob = -1; //default to auto
+};

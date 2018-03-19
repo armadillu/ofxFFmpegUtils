@@ -5,8 +5,19 @@ void ofApp::setup(){
 
 	ofBackground(22);
 	ffmpeg.setup("/usr/local/bin/ffmpeg", "/usr/local/bin/ffprobe");
+	ffmpeg.setMaxThreadsPerJob(1);
+	ffmpeg.setMaxSimulatneousJobs(10);
+	
+	ofAddListener(ffmpeg.eventJobCompleted, this, &ofApp::onFFmpegJobCompleted);
 }
 
+void ofApp::onFFmpegJobCompleted(ofxFFmpegUtils::JobResult & j){
+
+	ofLogNotice() << "FFmpeg Job " << j.jobID << " Complete: " << j.ok;
+	ofLogNotice() << "exec time: " << j.results.runTime << " sec";
+	ofLogNotice() << "output: " << j.results.combinedOutput;
+
+}
 
 void ofApp::update(){
 
@@ -76,9 +87,9 @@ void ofApp::dragEvent(ofDragInfo dragInfo){
 									  1.0, //img compression [0..1]
 									  targetDir + "/" + movieFileName, //folder to output to
 									  6, //num digits in img sequence file naming
-									  ofVec2f(100,100), //resize to fit this box
-									  ofVec2f(4,1), //crop to match this aspect ratio
-									  1 //if cropping, crop balance factor: where to we crop?
+									  ofVec2f(300,300), //resize to fit this box
+									  ofVec2f(-1,-1), //crop to match this aspect ratio
+									  0 //if cropping, crop balance factor: where to we crop?
 									  );
 	}
 }
