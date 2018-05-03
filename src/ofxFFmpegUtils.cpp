@@ -13,14 +13,14 @@ ofxFFmpegUtils::ofxFFmpegUtils(){
 
 ofxFFmpegUtils::~ofxFFmpegUtils(){
 	for(auto p : jobQueue){
-		delete p.second;
+		delete p.second.process;
 	}
 	jobQueue.clear();
 
 	for(auto p : activeProcesses){
-		p.second->kill();
-		p.second->join();
-		delete p.second;
+		p.second.process->kill();
+		p.second.process->join();
+		delete p.second.process;
 	}
 	activeProcesses.clear();
 }
@@ -62,8 +62,8 @@ ofVec2f ofxFFmpegUtils::getVideoResolution(string movieFilePath){
 }
 
 
-size_t ofxFFmpegUtils::convertToImageSequence(string movieFile, string imgFileExtension,
-											float jpegQuality/*[0..1]*/, string outputFolder, int numFilenameDigits,
+size_t ofxFFmpegUtils::convertToImageSequence(string movieFile, string imgFileExtension, float jpegQuality/*[0..1]*/,
+											  string outputFolder, bool convertToGrayscale, int numFilenameDigits,
 											ofVec2f resizeBox, ofVec2f cropToAspectRatio, float cropBalance){
 
 	size_t jobID = jobCounter;
@@ -84,6 +84,7 @@ size_t ofxFFmpegUtils::convertToImageSequence(string movieFile, string imgFileEx
 		"-q:v", ofToString((int)ofMap(0, 1, 31, 1, true)),
 		"-coder", "raw",
 		"-y", //overwrite
+		//"-pix_fmt", "yuv420p",
 		"-loglevel", "40", //verbose
 		imgNameScheme
 	};
@@ -97,13 +98,16 @@ size_t ofxFFmpegUtils::convertToImageSequence(string movieFile, string imgFileEx
 	bool isResizing = resizeBox.x > 0 && resizeBox.y > 0;
 	bool isCropping = cropToAspectRatio.x > 0 && cropToAspectRatio.y > 0;
 
+	vector<string> vfArgs;
+	bool needVF = false;
+
 	if( isResizing && !isCropping ){ //only resize
 
 		r.scaleTo(resizeTarget);
 
 		if(r.width != 0 && r.height != 0){
-			args.insert(args.begin() + args.size() - 1, "-vf");
-			args.insert(args.begin() + args.size() - 1, "scale=" + ofToString(r.width,0) + ":" + ofToString(r.height,0));
+			needVF = true;
+			vfArgs.push_back( "scale=" + ofToString(r.width,0) + ":" + ofToString(r.height,0) );
 			isResizing = true;
 		}else{
 			ofLogError("ofxFFmpegUtils") << "cant get video res! cant resize video! " << movieFile;
@@ -132,10 +136,8 @@ size_t ofxFFmpegUtils::convertToImageSequence(string movieFile, string imgFileEx
 			command = "crop=" + ofToString(crop.width,0) + ":" + ofToString(crop.height,0) + ":" + ofToString(cropOffset) + ":" + "0";
 		}
 
-		args.insert(args.begin() + args.size() - 1, "-vf");
-		args.insert(args.begin() + args.size() - 1, command);
-
-
+		needVF = true;
+		vfArgs.push_back( command );
 	}
 
 	if(isCropping && isResizing){ //resize & crop
@@ -162,8 +164,8 @@ size_t ofxFFmpegUtils::convertToImageSequence(string movieFile, string imgFileEx
 			ofToString(crop.width,0) + ":" + ofToString(crop.height,0) + ":" + ofToString(cropOffset) + ":" + "0";
 		}
 
-		args.insert(args.begin() + args.size() - 1, "-vf");
-		args.insert(args.begin() + args.size() - 1, command);
+		needVF = true;
+		vfArgs.push_back( command );
 	}
 
 
@@ -171,6 +173,26 @@ size_t ofxFFmpegUtils::convertToImageSequence(string movieFile, string imgFileEx
 		ofLogNotice("ofxFFmpegUtils") << "limiting ffmpeg job to " << maxThreadsPerJob << " threads.";
 		args.insert(args.begin(), ofToString(maxThreadsPerJob));
 		args.insert(args.begin(), "-threads");
+	}
+
+	if(convertToGrayscale){
+		needVF = true;
+	}
+
+	if(needVF){
+		if(convertToGrayscale){ //note that grayscale conversion comes last!
+			vfArgs.push_back("format=gray");
+		}
+
+		string totalVF;
+		int c = 0;
+		for(auto arg : vfArgs){
+			totalVF += arg;
+			c++;
+			if(c < vfArgs.size()) totalVF += ",";
+		}
+		args.insert(args.begin() + args.size() - 1, "-vf");
+		args.insert(args.begin() + args.size() - 1, totalVF);
 	}
 
 	proc->setup(
@@ -183,7 +205,11 @@ size_t ofxFFmpegUtils::convertToImageSequence(string movieFile, string imgFileEx
 	proc->setLivePipe(ofxExternalProcess::STDOUT_AND_STDERR_PIPE);
 
 	//proc->executeInThreadAndNotify();
-	jobQueue[jobID] = proc; //enqueue job
+	JobInfo jobInfo;
+	jobInfo.originalFile = movieFile;
+	jobInfo.destinationFolder = outputFolder;
+	jobInfo.process = proc;
+	jobQueue[jobID] = jobInfo; //enqueue job
 	return jobID;
 }
 
@@ -194,16 +220,18 @@ void ofxFFmpegUtils::update(float dt){
 
 	//look for finished processes, put them on delete list and notify
 	for(auto p : activeProcesses){
-		if (!p.second->isRunning()){
+		if (!p.second.process->isRunning()){
 			ofLogNotice("ofxFFmpegUtils") << "job \"" << p.first << "\" done!";
 			//ofLogNotice("ofxFFmpegUtils") << p.second->getCombinedOutput();
 			JobResult r;
 			r.jobID = p.first;
-			r.results = p.second->getLastExecutionResult();
+			r.inputFilePath = p.second.originalFile;
+			r.outputFolder = p.second.destinationFolder;
+			r.results = p.second.process->getLastExecutionResult();
 			r.ok = r.results.statusCode == 0;
 			ofNotifyEvent(eventJobCompleted, r, this);
 
-			delete p.second;
+			delete p.second.process;
 			toDelete.push_back(p.first);
 		}
 	}
@@ -225,7 +253,7 @@ void ofxFFmpegUtils::update(float dt){
 
 	for(auto & t : toTransfer){
 		activeProcesses[t] = jobQueue[t];
-		activeProcesses[t]->executeInThreadAndNotify();
+		activeProcesses[t].process->executeInThreadAndNotify();
 		jobQueue.erase(t);
 	}
 
@@ -239,7 +267,7 @@ void ofxFFmpegUtils::drawDebug(int x, int y){
 		msg += " Pending: " + ofToString(jobQueue.size()) + " Active: " + ofToString(activeProcesses.size()) + "\n";
 
 		for(auto & p : activeProcesses){
-			auto out = p.second->getCombinedOutput();
+			auto out = p.second.process->getCombinedOutput();
 			auto lines = ofSplitString(out, "\n");
 			if(lines.size() > 0){
 				auto frames = ofSplitString(lines.back(), "\r");

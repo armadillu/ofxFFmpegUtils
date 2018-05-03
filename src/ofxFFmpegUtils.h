@@ -22,7 +22,7 @@ public:
 	void setMaxSimulatneousJobs(int max); //enqueue jobs if more than N are already running
 	void setMaxThreadsPerJob(int maxThr); //set it "-1" for auto (# of hw cores)
 
-	//returns video res of a specific file (spaws an external process & blocks)
+	//returns video res of a specific file (spaws an external process & blocks!)
 	ofVec2f getVideoResolution(string movieFilePath);
 
 	//returns a jobID
@@ -30,6 +30,7 @@ public:
 								string imgFileExtension, //"jpeg", "tiff", etc
 								float jpegQuality/*[0..1]*/,
 								string outputFolder,
+								bool convertToGrayscale,
 								int numFilenameDigits = 6, // "output_00004.jpg" ctrl # of leading zeros
 								ofVec2f resizeBox = ofVec2f(-1,-1), //if you supply a size, img sequence will be resized so that it fits in that size (keeping aspect ratio)
 								ofVec2f cropToAspectRatio = ofVec2f(-1,-1),
@@ -43,6 +44,8 @@ public:
 
 	struct JobResult{
 		size_t jobID = 0;
+		string inputFilePath;
+		string outputFolder;
 		bool ok = false;
 		ofxExternalProcess::Result results;
 	};
@@ -51,13 +54,19 @@ public:
 
 protected:
 
-	map<size_t, ofxExternalProcess*> jobQueue;
-	map<size_t, ofxExternalProcess*> activeProcesses;
+	struct JobInfo{
+		string originalFile;
+		string destinationFolder;
+		ofxExternalProcess* process = nullptr;
+	};
+
+	map<size_t, JobInfo> jobQueue;
+	map<size_t, JobInfo> activeProcesses;
 
 	string ffmpegBinaryPath;
 	string ffProbeBinaryPath;
 
 	size_t jobCounter = 0;
 	int maxSimultJobs = 2;
-	int maxThreadsPerJob = -1; //default to auto
+	int maxThreadsPerJob = -1; //default to auto - use all
 };
