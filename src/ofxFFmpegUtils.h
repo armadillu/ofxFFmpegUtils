@@ -52,6 +52,8 @@ public:
 
 	ofEvent<JobResult> eventJobCompleted;
 
+	bool isBusy(){return activeProcesses.size() > 0 || jobQueue.size() > 0;}
+
 protected:
 
 	struct JobInfo{
