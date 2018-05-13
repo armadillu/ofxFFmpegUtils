@@ -25,7 +25,7 @@ ofxFFmpegUtils::~ofxFFmpegUtils(){
 	activeProcesses.clear();
 }
 
-void ofxFFmpegUtils::setup(string ffmpegBinaryPath, string ffProbeBinaryPath){
+void ofxFFmpegUtils::setup(const string & ffmpegBinaryPath, const string & ffProbeBinaryPath){
 	this->ffmpegBinaryPath = ffmpegBinaryPath;
 	this->ffProbeBinaryPath = ffProbeBinaryPath;
 }
@@ -39,7 +39,7 @@ void ofxFFmpegUtils::setMaxThreadsPerJob(int maxThr){
 }
 
 
-ofVec2f ofxFFmpegUtils::getVideoResolution(string movieFilePath){
+ofVec2f ofxFFmpegUtils::getVideoResolution(const string & movieFilePath){
 
 	string videoSize = ofSystem(ffProbeBinaryPath + " -v error -show_entries stream=width,height -of default=noprint_wrappers=1 \"" + movieFilePath + "\"");
 	auto lines = ofSplitString(videoSize, "\n");
@@ -62,8 +62,28 @@ ofVec2f ofxFFmpegUtils::getVideoResolution(string movieFilePath){
 }
 
 
-size_t ofxFFmpegUtils::convertToImageSequence(string movieFile, string imgFileExtension, float jpegQuality/*[0..1]*/,
-											  string outputFolder, bool convertToGrayscale, int numFilenameDigits,
+float ofxFFmpegUtils::getVideoFramerate(const string & movieFilePath){
+//ffprobe -v 0 -of csv=p=0 -select_streams 0 -show_entries stream=r_frame_rate infile
+
+	//https://askubuntu.com/questions/110264/how-to-find-frames-per-second-of-any-video-file
+
+	string framerate = ofSystem(ffProbeBinaryPath + " -v 0 -of csv=p=0 -select_streams 0 -show_entries stream=r_frame_rate \"" + movieFilePath + "\"");
+	auto split = ofSplitString(framerate, "/");
+	if (split.size() != 2){
+		ofLogError("ofxFFmpegUtils") << "can't detect framerate for video " << movieFilePath;
+		return 0;
+	}else{
+		int val1 = ofToInt(split[0]);
+		int val2 = ofToInt(split[1]);
+		float fr = float(val1) / float(val2);
+		ofLogNotice("ofxFFmpegUtils") << "detected framerate for video " << movieFilePath << " : " << fr;
+		return fr;
+	}
+}
+
+
+size_t ofxFFmpegUtils::convertToImageSequence(const string & movieFile, const string & imgFileExtension, float jpegQuality/*[0..1]*/,
+											  const string & outputFolder, bool convertToGrayscale, int numFilenameDigits,
 											ofVec2f resizeBox, ofVec2f cropToAspectRatio, float cropBalance){
 
 	size_t jobID = jobCounter;
@@ -89,6 +109,8 @@ size_t ofxFFmpegUtils::convertToImageSequence(string movieFile, string imgFileEx
 		imgNameScheme
 	};
 
+	auto fps = getVideoFramerate(movieFile);
+
 	auto res = getVideoResolution(movieFile);
 	int w = res.x;
 	int h = res.y;
@@ -97,6 +119,18 @@ size_t ofxFFmpegUtils::convertToImageSequence(string movieFile, string imgFileEx
 
 	bool isResizing = resizeBox.x > 0 && resizeBox.y > 0;
 	bool isCropping = cropToAspectRatio.x > 0 && cropToAspectRatio.y > 0;
+
+	ofJson json;
+	json["framerate"] = fps;
+	json["resolution"]["x"] = res.x;
+	json["resolution"]["y"] = res.y;
+	json["originalFile"] = movieFile;
+	json["imgExtension"] = imgFileExtension;
+	json["jpegQuality"] = jpegQuality;
+	json["numFilenameDigits"] = numFilenameDigits;
+	json["cropBalance"] = cropBalance;
+	json["convertToGrayscale"] = convertToGrayscale;
+	ofSaveJson(ofToDataPath(outputFolder, true) + "/info.json", json);
 
 	vector<string> vfArgs;
 	bool needVF = false;

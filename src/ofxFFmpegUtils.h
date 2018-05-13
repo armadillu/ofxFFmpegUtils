@@ -17,19 +17,20 @@ public:
 	ofxFFmpegUtils();
 	~ofxFFmpegUtils();
 
-	void setup(string ffmpegBinaryPath, string ffProbeBinaryPath);
+	void setup(const string & ffmpegBinaryPath, const string & ffProbeBinaryPath);
 	void update(float dt);
 	void setMaxSimulatneousJobs(int max); //enqueue jobs if more than N are already running
 	void setMaxThreadsPerJob(int maxThr); //set it "-1" for auto (# of hw cores)
 
 	//returns video res of a specific file (spaws an external process & blocks!)
-	ofVec2f getVideoResolution(string movieFilePath);
+	ofVec2f getVideoResolution(const string & movieFilePath);
+	float getVideoFramerate(const string & movieFilePath);
 
 	//returns a jobID
-	size_t convertToImageSequence(string movieFilePath,
-								string imgFileExtension, //"jpeg", "tiff", etc
+	size_t convertToImageSequence(const string & movieFilePath,
+								const string & imgFileExtension, //"jpeg", "tiff", etc
 								float jpegQuality/*[0..1]*/,
-								string outputFolder,
+								const string & outputFolder,
 								bool convertToGrayscale,
 								int numFilenameDigits = 6, // "output_00004.jpg" ctrl # of leading zeros
 								ofVec2f resizeBox = ofVec2f(-1,-1), //if you supply a size, img sequence will be resized so that it fits in that size (keeping aspect ratio)
