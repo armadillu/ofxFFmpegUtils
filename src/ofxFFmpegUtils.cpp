@@ -38,6 +38,13 @@ void ofxFFmpegUtils::setMaxThreadsPerJob(int maxThr){
 	maxThreadsPerJob = maxThr;
 }
 
+ofJson ofxFFmpegUtils::getVideoInfo(const string & filePath){
+	//https://gist.github.com/nrk/2286511
+	//ffprobe -v quiet -print_format json -show_format -show_streams
+	string jsonString = ofSystem(ffProbeBinaryPath + " -v quiet -print_format json -show_format -show_streams \"" + filePath + "\"");
+	return ofJson::parse(jsonString);
+}
+
 
 ofVec2f ofxFFmpegUtils::getVideoResolution(const string & movieFilePath){
 

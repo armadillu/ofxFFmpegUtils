@@ -25,6 +25,7 @@ public:
 	//returns video res of a specific file (spaws an external process & blocks!)
 	ofVec2f getVideoResolution(const string & movieFilePath);
 	float getVideoFramerate(const string & movieFilePath);
+	ofJson getVideoInfo(const string & movieFilePath); //returns a json object
 
 	//returns a jobID
 	size_t convertToImageSequence(const string & movieFilePath,
