@@ -100,7 +100,9 @@ size_t ofxFFmpegUtils::convertToImageSequence(const string & movieFile, const st
 	vector<string> args;
 
 	//beware - this overwrites
-	ofDirectory::removeDirectory(ofToDataPath(outputFolder, true), true);
+	if(ofDirectory::doesDirectoryExist(ofToDataPath(outputFolder, true))){
+		ofDirectory::removeDirectory(ofToDataPath(outputFolder, true), true); //remove old
+	}
 	ofDirectory::createDirectory(ofToDataPath(outputFolder, true), true, true);
 
 	string imgNameScheme = ofToDataPath(outputFolder, true) + "/" + "output_" + "%0" + ofToString(numFilenameDigits) + "d." + imgFileExtension;
