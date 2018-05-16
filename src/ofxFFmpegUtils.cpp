@@ -105,7 +105,7 @@ size_t ofxFFmpegUtils::convertToImageSequence(const string & movieFile, const st
 	}
 	ofDirectory::createDirectory(ofToDataPath(outputFolder, true), true, true);
 
-	string imgNameScheme = ofToDataPath(outputFolder, true) + "/" + "output_" + "%0" + ofToString(numFilenameDigits) + "d." + imgFileExtension;
+	string imgNameScheme = ofToDataPath(outputFolder, true) + "/" + "%0" + ofToString(numFilenameDigits) + "d." + imgFileExtension;
 
 	//ffmpeg -i "$inputMovie" -q:v $jpegQuality -coder "raw" -y  -loglevel 40 "$folderName/output_%06d.$format"
 	args = {
