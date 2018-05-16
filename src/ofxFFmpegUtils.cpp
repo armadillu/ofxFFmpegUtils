@@ -48,7 +48,7 @@ ofJson ofxFFmpegUtils::getVideoInfo(const string & filePath){
 
 ofVec2f ofxFFmpegUtils::getVideoResolution(const string & movieFilePath){
 
-	string videoSize = ofSystem(ffProbeBinaryPath + " -v error -show_entries stream=width,height -of default=noprint_wrappers=1 \"" + movieFilePath + "\"");
+	string videoSize = ofSystem(ffProbeBinaryPath + " -v error -select_streams v -show_entries stream=width,height -of default=noprint_wrappers=1 \"" + movieFilePath + "\"");
 	auto lines = ofSplitString(videoSize, "\n");
 	int w = 0;
 	int h = 0;
@@ -74,7 +74,7 @@ float ofxFFmpegUtils::getVideoFramerate(const string & movieFilePath){
 
 	//https://askubuntu.com/questions/110264/how-to-find-frames-per-second-of-any-video-file
 
-	string framerate = ofSystem(ffProbeBinaryPath + " -v 0 -of csv=p=0 -select_streams 0 -show_entries stream=r_frame_rate \"" + movieFilePath + "\"");
+	string framerate = ofSystem(ffProbeBinaryPath + " -v 0 -of csv=p=0 -select_streams v -show_entries stream=r_frame_rate \"" + movieFilePath + "\"");
 	auto split = ofSplitString(framerate, "/");
 	if (split.size() != 2){
 		ofLogError("ofxFFmpegUtils") << "can't detect framerate for video " << movieFilePath;
