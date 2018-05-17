@@ -115,6 +115,7 @@ size_t ofxFFmpegUtils::convertToImageSequence(const string & movieFile, const st
 		"-y", //overwrite
 		//"-pix_fmt", "yuv420p",
 		"-loglevel", "40", //verbose
+		//"-nostats", //this removes the \r stuff with progresss
 		imgNameScheme
 	};
 
@@ -296,10 +297,24 @@ void ofxFFmpegUtils::update(float dt){
 
 	for(auto & t : toTransfer){
 		activeProcesses[t] = jobQueue[t];
+		activeProcesses[t].process->setLivePipeOutputDelay(0);
 		activeProcesses[t].process->executeInThreadAndNotify();
 		jobQueue.erase(t);
 	}
+}
 
+string ofxFFmpegUtils::getCurrentOutputForJob(size_t jobID){
+
+	auto it = activeProcesses.find(jobID);
+	if(it != activeProcesses.end()){
+		if(it->second.process){
+			return it->second.process->getSmartOutput();
+		}else{
+			ofLogError("ofxFFmpegUtils") << "can't getCurrentOutputForJob() as process is NULL? (jobID: " << jobID << ")";
+		}
+	}
+	ofLogError("ofxFFmpegUtils") << "can't getCurrentOutputForJob() as jobID " << jobID << " does not exist!";
+	return "";
 }
 
 
