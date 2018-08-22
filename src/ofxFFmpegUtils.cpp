@@ -30,6 +30,11 @@ void ofxFFmpegUtils::setup(const string & ffmpegBinaryPath, const string & ffPro
 	this->ffProbeBinaryPath = ffProbeBinaryPath;
 }
 
+bool ofxFFmpegUtils::isFFMpegAvailable(){
+	return ofFile::doesFileExist(ffmpegBinaryPath) && ofFile::doesFileExist(ffProbeBinaryPath);
+}
+
+
 void ofxFFmpegUtils::setMaxSimulatneousJobs(int max){
 	maxSimultJobs = ofClamp(max, 1, INT_MAX);
 }

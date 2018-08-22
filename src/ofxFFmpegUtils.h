@@ -19,6 +19,8 @@ public:
 
 	void setup(const string & ffmpegBinaryPath, const string & ffProbeBinaryPath);
 
+	bool isFFMpegAvailable();
+
 	void update(float dt);
 	void setMaxSimulatneousJobs(int max); //enqueue jobs if more than N are already running
 	void setMaxThreadsPerJob(int maxThr); //set it "-1" for auto (# of hw cores)
