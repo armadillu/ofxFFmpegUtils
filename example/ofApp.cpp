@@ -36,6 +36,12 @@ void ofApp::draw(){
 
 void ofApp::keyPressed(int key){
 
+	if(key=='1'){
+		string inputFolder = "/Volumes/LP/LP/REPOS/MetlifeProfet/Apps/MetlifeParticles/bin/renders/3a709c54-be33-4406-a017-c3068b0cedad/2018-08-23_17-10-26//combinedLayers/";
+		string outputMovie = "/Volumes/LP/LP/REPOS/MetlifeProfet/Apps/MetlifeParticles/bin/renders/3a709c54-be33-4406-a017-c3068b0cedad/2018-08-23_17-10-26//preview.mp4";
+		ffmpeg.imgSequenceToMP4(inputFolder, 60, 0.6, "frame_%08d", "tiff", outputMovie);
+
+	}
 }
 
 

@@ -93,6 +93,52 @@ float ofxFFmpegUtils::getVideoFramerate(const string & movieFilePath){
 	}
 }
 
+size_t ofxFFmpegUtils::imgSequenceToMP4(const string & imgFolder,
+									  float framerate,
+									  float compressQuality,
+									  const string &filenameFormat, 		//ie frame_%08d
+									  const string & imgFileExtension, 	//ie tiff
+									  const string & outputMovieFilePath){
+
+	size_t jobID = jobCounter;
+	jobCounter++;
+
+	ofxExternalProcess * proc = new ofxExternalProcess();
+	vector<string> args;
+
+	args = {
+		"-framerate", ofToString(framerate, 4),
+		"-y", //overwrite
+		"-i" , imgFolder + "/" + filenameFormat + "." + imgFileExtension,
+		"-profile:v", "baseline", "-level", "3.0",
+		"-x264opts", "keyint=30",
+		"-vf", "format=yuv420p",
+		"-crf", ofToString((int)ofMap(compressQuality, 0, 1, 51, 0, true), 0),
+		"-loglevel", "30", //verbose
+		"-nostdin",
+		"-nostats", //this removes the \r stuff with progresss
+		outputMovieFilePath
+	};
+
+	proc->setup(
+				".", 				//working dir
+				ffmpegBinaryPath, 	//command
+				args 				//args (std::vector<string>)
+				);
+
+	proc->setLivePipeOutputDelay(1);
+	proc->setLivePipe(ofxExternalProcess::STDOUT_AND_STDERR_PIPE);
+
+	JobInfo jobInfo;
+	jobInfo.type = IMG_SEQ_TO_MOVIE;
+	jobInfo.originalFile = imgFolder;
+	jobInfo.destinationFolder = outputMovieFilePath;
+	jobInfo.process = proc;
+	jobQueue[jobID] = jobInfo; //enqueue job
+	return jobID;
+
+}
+
 
 size_t ofxFFmpegUtils::convertToImageSequence(const string & movieFile, const string & imgFileExtension, float jpegQuality/*[0..1]*/,
 											  const string & outputFolder, bool convertToGrayscale, int numFilenameDigits,
@@ -255,6 +301,7 @@ size_t ofxFFmpegUtils::convertToImageSequence(const string & movieFile, const st
 
 	//proc->executeInThreadAndNotify();
 	JobInfo jobInfo;
+	jobInfo.type = MOVIE_TO_IMG_SEQ;
 	jobInfo.originalFile = movieFile;
 	jobInfo.destinationFolder = outputFolder;
 	jobInfo.process = proc;
@@ -273,6 +320,7 @@ void ofxFFmpegUtils::update(float dt){
 			ofLogNotice("ofxFFmpegUtils") << "job \"" << p.first << "\" done!";
 			//ofLogNotice("ofxFFmpegUtils") << p.second->getCombinedOutput();
 			JobResult r;
+			r.type = p.second.type;
 			r.jobID = p.first;
 			r.inputFilePath = p.second.originalFile;
 			r.outputFolder = p.second.destinationFolder;

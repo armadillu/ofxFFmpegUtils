@@ -45,9 +45,24 @@ public:
 
 								);
 
+	//returns a jobID
+	size_t imgSequenceToMP4(	const string & imgFolder,
+							float framerate,
+							float compressQuality, /*0..1*/
+						  	const string &filenameFormat, 		//ie frame_%08d
+						  	const string & imgFileExtension, 	//ie tiff
+						  	const string & outputMovieFilePath 		//result movie file path
+						  );
+
 	void drawDebug(int x, int y);
 
+	enum JobType{
+		MOVIE_TO_IMG_SEQ,
+		IMG_SEQ_TO_MOVIE
+	};
+
 	struct JobResult{
+		JobType type;
 		size_t jobID = 0;
 		string inputFilePath;
 		string outputFolder;
@@ -61,9 +76,11 @@ public:
 
 	bool isBusy(){return activeProcesses.size() > 0 || jobQueue.size() > 0;}
 
+
 protected:
 
 	struct JobInfo{
+		JobType type;
 		string originalFile;
 		string destinationFolder;
 		ofxExternalProcess* process = nullptr;
