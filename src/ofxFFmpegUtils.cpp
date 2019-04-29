@@ -75,11 +75,15 @@ ofVec2f ofxFFmpegUtils::getVideoResolution(const string & movieFilePath){
 
 
 float ofxFFmpegUtils::getVideoFramerate(const string & movieFilePath){
-//ffprobe -v 0 -of csv=p=0 -select_streams 0 -show_entries stream=r_frame_rate infile
 
+	//ffprobe -v 0 -of csv=p=0 -select_streams 0 -show_entries stream=r_frame_rate infile
 	//https://askubuntu.com/questions/110264/how-to-find-frames-per-second-of-any-video-file
 
 	string framerate = ofSystem(ffProbeBinaryPath + " -v 0 -of csv=p=0 -select_streams v -show_entries stream=r_frame_rate \"" + movieFilePath + "\"");
+	auto manyLines = ofSplitString(framerate, "\n");
+	if(manyLines.size() > 1){
+		framerate = manyLines[0];
+	}
 	auto split = ofSplitString(framerate, "/");
 	if (split.size() != 2){
 		ofLogError("ofxFFmpegUtils") << "can't detect framerate for video " << movieFilePath;
@@ -119,6 +123,10 @@ size_t ofxFFmpegUtils::imgSequenceToMP4(const string & imgFolder,
 		"-nostats", //this removes the \r stuff with progresss
 		outputMovieFilePath
 	};
+
+	if(extraArguments.size()){
+		args.insert(args.begin(), extraArguments.begin(), extraArguments.end());
+	}
 
 	proc->setup(
 				".", 				//working dir
@@ -169,6 +177,10 @@ size_t ofxFFmpegUtils::convertToImageSequence(const string & movieFile, const st
 		//"-nostats", //this removes the \r stuff with progresss
 		imgNameScheme
 	};
+
+	if(extraArguments.size()){
+		args.insert(args.begin(), extraArguments.begin(), extraArguments.end());
+	}
 
 	auto fps = getVideoFramerate(movieFile);
 

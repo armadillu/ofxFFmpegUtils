@@ -30,6 +30,10 @@ public:
 	float getVideoFramerate(const string & movieFilePath);
 	ofJson getVideoInfo(const string & movieFilePath); //returns a json object
 
+	void setExtraArguments(vector<string> args){extraArguments = args;};
+	void clearExtraArguments(){extraArguments.clear();}
+
+
 	//returns a jobID
 	size_t convertToImageSequence(const string & movieFilePath,
 								const string & imgFileExtension, //"jpeg", "tiff", etc
@@ -90,6 +94,8 @@ protected:
 
 	map<size_t, JobInfo> jobQueue;
 	map<size_t, JobInfo> activeProcesses;
+
+	vector<string> extraArguments;
 
 	string ffmpegBinaryPath;
 	string ffProbeBinaryPath;
