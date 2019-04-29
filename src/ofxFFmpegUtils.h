@@ -54,7 +54,9 @@ public:
 						  	const string & outputMovieFilePath 		//result movie file path
 						  );
 
+	std::string getStatus();
 	void drawDebug(int x, int y);
+	
 
 	enum JobType{
 		MOVIE_TO_IMG_SEQ,

@@ -371,22 +371,27 @@ string ofxFFmpegUtils::getCurrentOutputForJob(size_t jobID){
 }
 
 
+std::string ofxFFmpegUtils::getStatus(){
+
+	string msg = "#### ofxFFmpegUtils ################################\n";
+	msg += " Pending: " + ofToString(jobQueue.size()) + " Active: " + ofToString(activeProcesses.size()) + "\n";
+
+	for(auto & p : activeProcesses){
+		auto out = p.second.process->getCombinedOutput();
+		auto lines = ofSplitString(out, "\n");
+		if(lines.size() > 0){
+			auto frames = ofSplitString(lines.back(), "\r");
+			if(frames.size() > 0){
+				msg += "   -P" + ofToString(p.first) + ": " + frames.back() + "\n";
+			}
+		}
+	}
+	return msg;
+}
+
 void ofxFFmpegUtils::drawDebug(int x, int y){
 	ofPushMatrix();
 	ofTranslate(x,y);
-		string msg = "#### ofxFFmpegUtils ################################\n";
-		msg += " Pending: " + ofToString(jobQueue.size()) + " Active: " + ofToString(activeProcesses.size()) + "\n";
-
-		for(auto & p : activeProcesses){
-			auto out = p.second.process->getCombinedOutput();
-			auto lines = ofSplitString(out, "\n");
-			if(lines.size() > 0){
-				auto frames = ofSplitString(lines.back(), "\r");
-				if(frames.size() > 0){
-					msg += "   -P" + ofToString(p.first) + ": " + frames.back() + "\n";
-				}
-			}
-		}
-		ofDrawBitmapString(msg, 0, 0);
+		ofDrawBitmapString(getStatus(), 0, 0);
 	ofPopMatrix();
 }
