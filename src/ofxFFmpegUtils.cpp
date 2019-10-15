@@ -169,7 +169,7 @@ size_t ofxFFmpegUtils::convertToImageSequence(const string & movieFile, const st
 	//ffmpeg -i "$inputMovie" -q:v $jpegQuality -coder "raw" -y  -loglevel 40 "$folderName/output_%06d.$format"
 	args = {
 		"-i", ofToDataPath(movieFile, true),
-		"-q:v", ofToString((int)ofMap(0, 1, 31, 1, true)),
+		"-q:v", ofToString((int)ofMap(jpegQuality, 0, 1, 31, 1, true)),
 		"-coder", "raw",
 		"-y", //overwrite
 		//"-pix_fmt", "yuv420p",
