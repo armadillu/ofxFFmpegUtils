@@ -203,7 +203,7 @@ size_t ofxFFmpegUtils::convertToImageSequence(const string & movieFile, const st
 	json["numFilenameDigits"] = numFilenameDigits;
 	json["cropBalance"] = cropBalance;
 	json["convertToGrayscale"] = convertToGrayscale;
-	ofSaveJson(ofToDataPath(outputFolder, true) + "/info.json", json);
+	ofSavePrettyJson(ofToDataPath(outputFolder, true) + "/info.json", json);
 
 	vector<string> vfArgs;
 	bool needVF = false;
@@ -338,6 +338,11 @@ void ofxFFmpegUtils::update(float dt){
 			r.outputFolder = p.second.destinationFolder;
 			r.results = p.second.process->getLastExecutionResult();
 			r.ok = r.results.statusCode == 0;
+
+			ofJson json;
+			json["completed_ok"] = r.ok;
+			ofSavePrettyJson(ofToDataPath(r.outputFolder, true) + "/jobResult.json", json);
+
 			ofNotifyEvent(eventJobCompleted, r, this);
 
 			delete p.second.process;
